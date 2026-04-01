@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>COPD Smart Monitor</title>
+<style>
+:root {
+  --bg:#0d1117; --bg2:#161b22; --bg3:#1e2530; --surface:#1c2333;
+  --border:rgba(255,255,255,0.08); --border2:rgba(255,255,255,0.14);
+  --text:#e6edf3; --muted:#8b949e;
+  --accent:#58a6ff; --purple:#a371f7;
+  --ok:#3fb950; --warn:#e3b341; --crit:#f85149;
+  --font:system-ui,-apple-system,sans-serif; --mono:monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.6;min-height:100vh;}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.logo{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;}
+.logo-icon{width:30px;height:30px;background:linear-gradient(135deg,#58a6ff,#a371f7);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:15px;}
+.live-badge{display:flex;align-items:center;gap:6px;background:rgba(63,185,80,0.12);border:1px solid rgba(63,185,80,0.3);color:var(--ok);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;}
+.pulse{width:7px;height:7px;border-radius:50%;background:var(--ok);animation:pulse 1.5s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(1.4)}}
+.pat{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);}
+.av{width:26px;height:26px;background:var(--purple);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;}
+.layout{display:flex;min-height:calc(100vh - 56px);}
+.sidebar{width:210px;background:var(--bg2);border-right:1px solid var(--border);padding:16px 0;flex-shrink:0;}
+.nav-sec{padding:0 10px;margin-bottom:18px;}
+.nav-lbl{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.1em;padding:0 8px;margin-bottom:5px;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:6px;cursor:pointer;font-size:13px;color:var(--muted);transition:all 0.15s;margin-bottom:1px;}
+.nav-item:hover{background:var(--bg3);color:var(--text);}
+.nav-item.active{background:rgba(88,166,255,0.1);color:var(--accent);}
+.ni{font-size:14px;width:18px;text-align:center;}
+.main{flex:1;padding:24px;overflow-x:hidden;}
+.page{display:none;} .page.active{display:block;}
+.alert{display:flex;align-items:center;gap:10px;padding:11px 16px;border-radius:8px;margin-bottom:20px;font-size:13px;font-weight:500;}
+.a-ok{background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.3);color:var(--ok);}
+.a-warn{background:rgba(227,179,65,0.1);border:1px solid rgba(227,179,65,0.35);color:var(--warn);}
+.a-crit{background:rgba(248,81,73,0.12);border:1px solid rgba(248,81,73,0.4);color:var(--crit);}
+.ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.pt{font-size:17px;font-weight:700;} .ps{font-size:12px;color:var(--muted);margin-top:2px;}
+.clock{font-size:12px;color:var(--muted);font-family:var(--mono);}
+.vg{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+.vc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;position:relative;overflow:hidden;}
+.vc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:10px 10px 0 0;}
+.vc.ok::before{background:var(--ok);} .vc.warn::before{background:var(--warn);} .vc.crit::before{background:var(--crit);}
+.vl{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:7px;}
+.vv{font-size:30px;font-weight:300;font-family:var(--mono);line-height:1;margin-bottom:3px;}
+.vu{font-size:12px;color:var(--muted);}
+.vs{font-size:11px;margin-top:9px;font-weight:600;}
+.ok .vv{color:var(--ok);} .warn .vv{color:var(--warn);} .crit .vv{color:var(--crit);}
+.cr{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:20px;}
+.cc{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;}
+.ct{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:12px;}
+canvas{display:block;max-width:100%;}
+.ai-sec{background:var(--surface);border:1px solid var(--border2);border-radius:10px;padding:20px;margin-bottom:20px;}
+.ai-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.ai-badge{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:700;background:rgba(163,113,247,0.12);border:1px solid rgba(163,113,247,0.3);color:var(--purple);padding:3px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:0.06em;}
+.ai-btn{background:linear-gradient(135deg,#a371f7,#58a6ff);color:#fff;border:none;padding:8px 18px;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;transition:opacity 0.2s;}
+.ai-btn:hover{opacity:0.88;} .ai-btn:disabled{opacity:0.45;cursor:not-allowed;}
+.risk-row{display:flex;align-items:center;gap:14px;margin-bottom:16px;}
+.risk-num{font-size:26px;font-weight:300;font-family:var(--mono);min-width:55px;}
+.risk-wrap{flex:1;height:9px;background:var(--bg3);border-radius:5px;overflow:hidden;}
+.risk-fill{height:100%;border-radius:5px;transition:width 1s ease,background 0.5s;}
+.risk-lbl{font-size:12px;color:var(--muted);min-width:90px;}
+.ai-out{background:var(--bg3);border-radius:7px;padding:14px 16px;font-size:13px;line-height:1.8;color:var(--text);min-height:56px;white-space:pre-wrap;}
+.typing::after{content:'|';animation:blink 0.7s step-start infinite;color:var(--accent);}
+@keyframes blink{50%{opacity:0}}
+.ftags{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;}
+.ft{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+.ft-ok{background:rgba(63,185,80,0.1);border:1px solid rgba(63,185,80,0.25);color:var(--ok);}
+.ft-warn{background:rgba(227,179,65,0.1);border:1px solid rgba(227,179,65,0.3);color:var(--warn);}
+.ft-bad{background:rgba(248,81,73,0.1);border:1px solid rgba(248,81,73,0.3);color:var(--crit);}
+.ag{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;}
+.ac{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;}
+.ac-top{display:flex;align-items:center;justify-content:space-between;}
+.ac-name{font-size:13px;font-weight:700;} .ac-sub{font-size:11px;color:var(--muted);}
+.toggle{position:relative;width:42px;height:22px;background:var(--bg3);border-radius:11px;cursor:pointer;transition:background 0.2s;border:1px solid var(--border2);flex-shrink:0;}
+.toggle.on{background:var(--ok);border-color:var(--ok);}
+.toggle::after{content:'';position:absolute;width:16px;height:16px;background:#fff;border-radius:50%;top:2px;left:2px;transition:transform 0.2s;}
+.toggle.on::after{transform:translateX(20px);}
+.ac-trig{font-size:11px;color:var(--accent);}
+.ev-log{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:16px;}
+.ev-title{font-size:13px;font-weight:700;margin-bottom:10px;}
+.rc{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center;}
+.rc select,.rc input[type=date]{background:var(--surface);border:1px solid var(--border2);color:var(--text);padding:7px 11px;border-radius:7px;font-size:13px;cursor:pointer;}
+.btn{padding:7px 14px;border-radius:7px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:13px;cursor:pointer;transition:background 0.15s;}
+.btn:hover{background:var(--bg3);}
+.btn-p{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:700;}
+.btn-p:hover{opacity:0.9;background:var(--accent);}
+.rs{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px;}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:13px;}
+.sl{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:5px;}
+.sv{font-size:19px;font-weight:600;font-family:var(--mono);}
+.ss{font-size:11px;color:var(--muted);margin-top:3px;}
+.tw{background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px;}
+table{width:100%;border-collapse:collapse;}
+th{padding:10px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;background:var(--bg3);border-bottom:1px solid var(--border);}
+td{padding:10px 14px;font-size:12px;border-bottom:1px solid var(--border);font-family:var(--mono);}
+tr:last-child td{border-bottom:none;} tr:hover td{background:rgba(255,255,255,0.02);}
+.pill{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;font-family:var(--font);}
+.p-ok{background:rgba(63,185,80,0.12);color:var(--ok);} .p-warn{background:rgba(227,179,65,0.12);color:var(--warn);} .p-crit{background:rgba(248,81,73,0.12);color:var(--crit);}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.scard{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:20px;}
+.scard h3{font-size:13px;font-weight:700;margin-bottom:14px;}
+.srow{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.slabel{font-size:13px;} .ssub{font-size:11px;color:var(--muted);}
+.tinput{background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:6px;width:68px;font-family:var(--mono);font-size:13px;text-align:center;}
+.qrow{display:flex;gap:10px;margin-bottom:12px;}
+.qinput{flex:1;background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:9px 13px;border-radius:7px;font-size:13px;font-family:var(--font);}
+.qinput::placeholder{color:var(--muted);}
+.qinput:focus{outline:1px solid var(--accent);border-color:var(--accent);}
+@media(max-width:1100px){.vg{grid-template-columns:repeat(2,1fr);}.cr{grid-template-columns:1fr;}.rs{grid-template-columns:repeat(3,1fr);}}
+@media(max-width:700px){.sidebar{display:none;}.ag{grid-template-columns:1fr;}.sg{grid-template-columns:1fr;}.main{padding:14px;}}
+::-webkit-scrollbar{width:5px;} ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo"><div class="logo-icon">🫁</div>COPD Monitor</div>
+  <div style="display:flex;align-items:center;gap:14px;">
+    <div class="live-badge"><div class="pulse"></div>LIVE</div>
+    <div class="pat"><div class="av">P1</div><span>patient01 · Room 204</span></div>
+  </div>
+</div>
+
+<div class="layout">
+<div class="sidebar">
+  <div class="nav-sec">
+    <div class="nav-lbl">Monitor</div>
+    <div class="nav-item active" onclick="nav('dashboard',this)"><span class="ni">📊</span>Dashboard</div>
+    <div class="nav-item" onclick="nav('ai',this)"><span class="ni">🤖</span>AI Prediction</div>
+    <div class="nav-item" onclick="nav('actuators',this)"><span class="ni">⚙️</span>Actuators</div>
+  </div>
+  <div class="nav-sec">
+    <div class="nav-lbl">Reports</div>
+    <div class="nav-item" onclick="nav('reports',this)"><span class="ni">📄</span>Daily Reports</div>
+    <div class="nav-item" onclick="nav('history',this)"><span class="ni">📈</span>Trend History</div>
+  </div>
+  <div class="nav-sec">
+    <div class="nav-lbl">Config</div>
+    <div class="nav-item" onclick="nav('settings',this)"><span class="ni">🔧</span>Settings</div>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- DASHBOARD -->
+<div class="page active" id="p-dashboard">
+  <div class="ph">
+    <div><div class="pt">Live Vitals</div><div class="ps">Sensor readings — updates every 4 seconds</div></div>
+    <div class="clock" id="clk">--:--:--</div>
+  </div>
+  <div id="alertbox"></div>
+  <div class="vg">
+    <div class="vc ok" id="c-spo2"><div class="vl">SpO2 Saturation</div><div class="vv" id="v-spo2">97</div><div class="vu">% oxygen</div><div class="vs" id="s-spo2" style="color:var(--ok)">Normal</div></div>
+    <div class="vc ok" id="c-rr"><div class="vl">Respiratory Rate</div><div class="vv" id="v-rr">17</div><div class="vu">breaths/min</div><div class="vs" id="s-rr" style="color:var(--ok)">Normal</div></div>
+    <div class="vc ok" id="c-temp"><div class="vl">Body Temperature</div><div class="vv" id="v-temp">36.8</div><div class="vu">degrees C</div><div class="vs" id="s-temp" style="color:var(--ok)">Normal</div></div>
+  </div>
+  <div class="cr">
+    <div class="cc"><div class="ct">SpO2 + Respiratory Rate — last 60 readings</div><canvas id="mainChart" height="160"></canvas></div>
+    <div class="cc"><div class="ct">Today's risk breakdown</div><canvas id="donutChart" height="160"></canvas></div>
+  </div>
+</div>
+
+<!-- AI PREDICTION -->
+<div class="page" id="p-ai">
+  <div class="ph"><div><div class="pt">AI Condition Predictor</div><div class="ps">Analyzes current vitals to predict COPD exacerbation risk</div></div></div>
+  <div class="ai-sec">
+    <div class="ai-hdr">
+      <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span class="ai-badge">FastAPI</span><span style="font-size:12px;color:var(--muted)">Predictive Assessment</span></div>
+        <div style="font-size:14px;font-weight:700;">Exacerbation Risk Score</div>
+      </div>
+      <button class="ai-btn" id="aiBtn" onclick="runAI()">Run Analysis</button>
+    </div>
+    <div class="risk-row">
+      <div class="risk-num" id="riskNum" style="color:var(--ok)">0%</div>
+      <div class="risk-wrap"><div class="risk-fill" id="riskBar" style="width:0%;background:var(--ok)"></div></div>
+      <div class="risk-lbl" id="riskLbl">Not assessed</div>
+    </div>
+    <div class="ai-out" id="aiOut">Click "Run Analysis" to assess the patient's current respiratory condition.</div>
+    <div class="ftags" id="ftags"></div>
+  </div>
+  <div class="ai-sec">
+    <div style="font-size:14px;font-weight:700;margin-bottom:12px;">Ask a Clinical Question</div>
+    <div class="qrow">
+      <input class="qinput" id="qaInput" placeholder="e.g. What does SpO2 of 91% mean for COPD patients?" onkeydown="if(event.key==='Enter')askQ()">
+      <button class="ai-btn" onclick="askQ()">Ask</button>
+    </div>
+    <div class="ai-out" id="qaOut" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ACTUATORS -->
+<div class="page" id="p-actuators">
+  <div class="ph"><div><div class="pt">Actuator Control</div><div class="ps">Automatic + manual control of patient assistance devices</div></div></div>
+  <div class="ag" style="grid-template-columns:repeat(2,1fr)">
+    <div class="ac">
+      <div class="ac-top"><div><div class="ac-name">O2 Supply Relay</div><div class="ac-sub">Oxygen concentrator</div></div><span style="font-size:26px">🫧</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;"><span id="d-o2" style="font-size:12px;color:var(--muted)">Standby</span><div class="toggle" id="t-o2" onclick="tog('o2')"></div></div>
+      <div class="ac-trig">Auto ON when SpO2 drops below 94%</div>
+      <div style="font-size:11px;color:var(--muted);">Flow rate: <span id="o2r">---</span></div>
+    </div>
+    <div class="ac">
+      <div class="ac-top"><div><div class="ac-name">Bed Motor</div><div class="ac-sub">Head elevation</div></div><span style="font-size:26px">🛏️</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;"><span id="d-bed" style="font-size:12px;color:var(--muted)">0 degrees flat</span><div class="toggle" id="t-bed" onclick="tog('bed')"></div></div>
+      <div class="ac-trig">Auto ON when SpO2 below 92% or RR above 25</div>
+      <div style="font-size:11px;color:var(--muted);">Angle: <span id="bedA">0 degrees</span></div>
+    </div>
+  </div>
+  <div class="ev-log">
+    <div class="ev-title">Event Log</div>
+    <div id="evLog" style="font-size:12px;font-family:var(--mono);line-height:2;color:var(--muted)">No events yet.</div>
+  </div>
+</div>
+
+<!-- DAILY REPORTS -->
+<div class="page" id="p-reports">
+  <div class="ph"><div><div class="pt">Daily Reports</div><div class="ps">24-hour health summaries for caregivers and medical team</div></div></div>
+  <div class="rc">
+    <input type="date" id="rptDate">
+    <select><option>Full Summary</option><option>Critical Events Only</option><option>AI Analysis</option></select>
+    <button class="btn btn-p" onclick="genReport()">Generate AI Report</button>
+    <button class="btn" onclick="window.print()">Print</button>
+  </div>
+  <div class="rs">
+    <div class="sc"><div class="sl">Avg SpO2</div><div class="sv">96.2%</div><div class="ss">Min 91% · Max 99%</div></div>
+    <div class="sc"><div class="sl">Avg Resp Rate</div><div class="sv">18 br/m</div><div class="ss">Episodes: 3</div></div>
+    <div class="sc"><div class="sl">O2 Therapy</div><div class="sv">2.4 hrs</div><div class="ss">4 activations</div></div>
+    <div class="sc"><div class="sl">Risk Events</div><div class="sv" style="color:var(--warn)">2</div><div class="ss">Moderate alerts</div></div>
+    <div class="sc"><div class="sl">Overall Score</div><div class="sv" style="color:var(--ok)">B+</div><div class="ss">Stable day</div></div>
+  </div>
+  <div class="tw"><table>
+    <thead><tr><th>Time</th><th>SpO2</th><th>Resp Rate</th><th>Temp</th><th>O2 Therapy</th><th>Bed</th><th>Status</th></tr></thead>
+    <tbody id="rptBody"></tbody>
+  </table></div>
+  <div class="ai-sec">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;"><div style="font-size:14px;font-weight:700;">AI Clinical Summary</div><span class="ai-badge">AI Generated</span></div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">Auto-generated narrative report</div>
+    <div class="ai-out" id="rptOut" style="display:none"></div>
+  </div>
+</div>
+
+<!-- HISTORY -->
+<div class="page" id="p-history">
+  <div class="ph"><div><div class="pt">7-Day Trend Analysis</div><div class="ps">Weekly overview of respiratory health</div></div></div>
+  <div class="cc" style="margin-bottom:14px;"><div class="ct">SpO2 — 7 day average</div><canvas id="wkSpo2" height="160"></canvas></div>
+  <div class="cr">
+    <div class="cc"><div class="ct">Respiratory Rate — 7 days</div><canvas id="wkRR" height="140"></canvas></div>
+    <div class="cc"><div class="ct">Daily Risk Score</div><canvas id="wkRisk" height="140"></canvas></div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div class="page" id="p-settings">
+  <div class="ph"><div><div class="pt">System Settings</div><div class="ps">Configure thresholds, alerts, patient profile</div></div></div>
+  <div class="sg">
+    <div class="scard"><h3>Patient Profile</h3>
+      <div class="srow"><div class="slabel">Name</div><input type="text" value="patient01" class="tinput" style="width:130px"></div>
+      <div class="srow"><div class="slabel">Age</div><input type="number" value="67" class="tinput"></div>
+      <div class="srow"><div class="slabel">COPD Stage</div><select style="background:var(--bg3);border:1px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:6px;font-size:13px;"><option>Stage II (Moderate)</option><option>Stage III (Severe)</option></select></div>
+      <div class="srow"><div class="slabel">Doctor</div><input type="text" value="Dr. Perera" class="tinput" style="width:130px"></div>
+    </div>
+    <div class="scard"><h3>Alert Thresholds</h3>
+      <div class="srow"><div><div class="slabel">SpO2 Warning</div><div class="ssub">Caution alert trigger</div></div><div style="display:flex;align-items:center;gap:4px"><input type="number" value="94" class="tinput">%</div></div>
+      <div class="srow"><div><div class="slabel">SpO2 Critical</div><div class="ssub">O2 trigger</div></div><div style="display:flex;align-items:center;gap:4px"><input type="number" value="88" class="tinput">%</div></div>
+      <div class="srow"><div><div class="slabel">Resp Rate High</div><div class="ssub">breaths per minute</div></div><input type="number" value="25" class="tinput"></div>
+      <div class="srow"><div><div class="slabel">Temp Warning</div><div class="ssub">Infection indicator</div></div><div style="display:flex;align-items:center;gap:4px"><input type="number" value="37.8" step="0.1" class="tinput">C</div></div>
+    </div>
+    <div class="scard"><h3>Actuator Config</h3>
+      <div class="srow"><div><div class="slabel">Bed Elevation</div></div><div style="display:flex;align-items:center;gap:4px"><input type="number" value="30" class="tinput"> degrees</div></div>
+      <div class="srow"><div><div class="slabel">O2 Flow Rate</div></div><div style="display:flex;align-items:center;gap:4px"><input type="number" value="2" class="tinput"> L/min</div></div>
+      <div class="srow"><div><div class="slabel">Auto SMS Alerts</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="srow"><div><div class="slabel">Auto Bed Adjust</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+    </div>
+    <div class="scard"><h3>AI Settings</h3>
+      <div class="srow"><div><div class="slabel">Auto Analysis</div><div class="ssub">Run every 30 minutes</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="srow"><div><div class="slabel">Daily AI Report</div><div class="ssub">Generate at midnight</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+      <div class="srow"><div><div class="slabel">Alert Caregiver</div><div class="ssub">On critical events</div></div><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+    </div>
+  </div>
+  <div style="margin-top:16px;display:flex;gap:10px;">
+    <button class="btn btn-p" onclick="alert('Settings saved!')">Save Settings</button>
+    <button class="btn">Reset Defaults</button>
+  </div>
+</div>
+
+</div>
+</div>
+
+<script>
+// ---- STATE ----
+var S = { spo2:97, rr:17, temp:36.8, h_spo2:[], h_rr:[], h_ts:[], act:{o2:false,bed:false} };
+for(var i=60;i>0;i--){
+  S.h_spo2.push(parseFloat((94+Math.random()*5).toFixed(1)));
+  S.h_rr.push(Math.round(14+Math.random()*8));
+  var d=new Date(); d.setSeconds(d.getSeconds()-i*5);
+  S.h_ts.push(d.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+}
+var GRID='rgba(255,255,255,0.06)', MUTED='#8b949e';
+var C={ok:'#3fb950',warn:'#e3b341',crit:'#f85149',accent:'#58a6ff',purple:'#a371f7'};
+
+// ---- CANVAS CHART ----
+function lineChart(id, ds, labels){
+  var cv=document.getElementById(id); if(!cv) return;
+  cv.width=cv.parentElement.clientWidth-32||500;
+  var W=cv.width, H=cv.height, ctx=cv.getContext('2d');
+  var pad={t:18,r:12,b:26,l:36};
+  var cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+  ctx.clearRect(0,0,W,H);
+  // grid
+  ctx.strokeStyle=GRID; ctx.lineWidth=0.5;
+  for(var g=0;g<=4;g++){ var gy=pad.t+ch*g/4; ctx.beginPath(); ctx.moveTo(pad.l,gy); ctx.lineTo(pad.l+cw,gy); ctx.stroke(); }
+  // x ticks
+  ctx.fillStyle=MUTED; ctx.font='10px system-ui'; ctx.textAlign='center';
+  var ev=Math.ceil(labels.length/7);
+  labels.forEach(function(l,i){ if(i%ev===0) ctx.fillText(l, pad.l+i*(cw/(labels.length-1)), H-5); });
+  // datasets
+  ds.forEach(function(d){
+    var vals=d.data, col=d.color||C.accent;
+    var mn=d.min!=null?d.min:Math.min.apply(null,vals)-2;
+    var mx=d.max!=null?d.max:Math.max.apply(null,vals)+2;
+    var toY=function(v){ return pad.t+ch*(1-(v-mn)/(mx-mn)); };
+    var xStep=cw/(vals.length-1);
+    // fill
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t+ch);
+    vals.forEach(function(v,i){ ctx.lineTo(pad.l+i*xStep, toY(v)); });
+    ctx.lineTo(pad.l+(vals.length-1)*xStep, pad.t+ch); ctx.closePath();
+    ctx.fillStyle=col.replace(')',',0.1)').replace('rgb','rgba'); ctx.fill();
+    // line
+    ctx.beginPath(); ctx.strokeStyle=col; ctx.lineWidth=1.5;
+    vals.forEach(function(v,i){ var x=pad.l+i*xStep,y=toY(v); i?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+    ctx.stroke();
+    // y labels
+    ctx.fillStyle=MUTED; ctx.textAlign='right'; ctx.font='10px system-ui';
+    for(var y=0;y<=4;y++) ctx.fillText(((mx-(mx-mn)*y/4)|0), pad.l-3, pad.t+ch*y/4+4);
+  });
+  // legend
+  ctx.textAlign='left'; ctx.font='11px system-ui'; var lx=pad.l;
+  ds.forEach(function(d){ ctx.fillStyle=d.color; ctx.fillRect(lx,4,12,3); ctx.fillStyle=MUTED; ctx.fillText(d.label,lx+16,9); lx+=ctx.measureText(d.label).width+44; });
+}
+
+function barChart(id, labels, vals, cols){
+  var cv=document.getElementById(id); if(!cv) return;
+  cv.width=cv.parentElement.clientWidth-32||400;
+  var W=cv.width, H=cv.height, ctx=cv.getContext('2d');
+  var pad={t:18,r:12,b:26,l:36};
+  var cw=W-pad.l-pad.r, ch=H-pad.t-pad.b;
+  ctx.clearRect(0,0,W,H);
+  var mx=Math.max.apply(null,vals)*1.2||10;
+  var slot=cw/labels.length, bw=slot*0.5;
+  ctx.strokeStyle=GRID; ctx.lineWidth=0.5;
+  for(var g=0;g<=4;g++){ var gy=pad.t+ch*g/4; ctx.beginPath(); ctx.moveTo(pad.l,gy); ctx.lineTo(pad.l+cw,gy); ctx.stroke(); }
+  ctx.fillStyle=MUTED; ctx.font='10px system-ui'; ctx.textAlign='right';
+  for(var y=0;y<=4;y++) ctx.fillText(((mx*(1-y/4))|0), pad.l-3, pad.t+ch*y/4+4);
+  labels.forEach(function(l,i){
+    var bh=ch*(vals[i]/mx), x=pad.l+slot*i+(slot-bw)/2, y=pad.t+ch-bh;
+    ctx.fillStyle=cols[i]||C.accent;
+    ctx.beginPath(); var r=3;
+    ctx.moveTo(x+r,y); ctx.lineTo(x+bw-r,y); ctx.quadraticCurveTo(x+bw,y,x+bw,y+r);
+    ctx.lineTo(x+bw,y+bh); ctx.lineTo(x,y+bh); ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle=MUTED; ctx.textAlign='center'; ctx.font='10px system-ui';
+    ctx.fillText(l, x+bw/2, H-5); ctx.fillText(vals[i], x+bw/2, y-4);
+  });
+}
+
+function donut(id, segs, lbls){
+  var cv=document.getElementById(id); if(!cv) return;
+  cv.width=cv.parentElement.clientWidth-32||200;
+  var W=cv.width, H=cv.height, ctx=cv.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  var cx=W/2, cy=H/2-8, r=Math.min(cx,cy-16)-8, ri=r*0.58;
+  var total=segs.reduce(function(a,b){return a+b;},0), angle=-Math.PI/2;
+  var cols=[C.ok,C.warn,C.crit];
+  segs.forEach(function(v,i){
+    var sw=v/total*Math.PI*2;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,angle,angle+sw); ctx.arc(cx,cy,ri,angle+sw,angle,true); ctx.closePath();
+    ctx.fillStyle=cols[i]; ctx.fill(); angle+=sw;
+  });
+  ctx.font='11px system-ui'; ctx.textAlign='left';
+  segs.forEach(function(v,i){
+    var ly=H-28+i*15;
+    ctx.fillStyle=cols[i]; ctx.fillRect(8,ly-8,10,8);
+    ctx.fillStyle=MUTED; ctx.fillText(lbls[i]+' ('+v+'%)',22,ly);
+  });
+}
+
+var chartsReady={main:false,week:false};
+function initMain(){ if(chartsReady.main) return; chartsReady.main=true; drawMain(); donut('donutChart',[70,20,10],['Safe','Caution','Risk']); }
+function initWeek(){
+  if(chartsReady.week) return; chartsReady.week=true;
+  var wL=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  lineChart('wkSpo2',[{label:'Avg SpO2 %',data:[95.2,96.1,93.8,95.0,96.5,94.3,96.8],color:C.ok,min:88,max:100}],wL);
+  barChart('wkRR',wL,[17,18,22,19,17,20,17],[17,18,22,19,17,20,17].map(function(v){return v>22?C.warn:C.accent;}));
+  barChart('wkRisk',wL,[15,12,42,18,10,28,12],[15,12,42,18,10,28,12].map(function(v){return v>35?C.crit:v>20?C.warn:C.ok;}));
+}
+function drawMain(){ lineChart('mainChart',[{label:'SpO2 %',data:S.h_spo2,color:C.ok,min:82,max:101},{label:'Resp Rate',data:S.h_rr,color:C.accent,min:8,max:37}],S.h_ts); }
+
+// ---- SENSOR TICK ----
+function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+function tick(){
+  S.spo2=clamp(S.spo2+(Math.random()-0.52)*0.9,85,99);
+  S.rr=clamp(S.rr+(Math.random()-0.5)*1.3,10,35);
+  S.temp=clamp(S.temp+(Math.random()-0.5)*0.05,36.0,39.5);
+  var spo2=parseFloat(S.spo2.toFixed(1)), rr=Math.round(S.rr), temp=parseFloat(S.temp.toFixed(1));
+  setText('v-spo2',spo2); setText('v-rr',rr); setText('v-temp',temp);
+  vStat('spo2',spo2,88,94,'c-spo2'); vStatH('rr',rr,30,25,'c-rr'); vStatH('temp',temp,38.5,37.8,'c-temp');
+  var now=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  S.h_spo2.push(spo2); S.h_rr.push(rr); S.h_ts.push(now);
+  if(S.h_spo2.length>60){S.h_spo2.shift();S.h_rr.shift();S.h_ts.shift();}
+  if(document.getElementById('p-dashboard').classList.contains('active')) drawMain();
+  autoAct('o2',spo2<94,'Auto: SpO2 '+spo2+'%','Auto OFF: SpO2 recovered');
+  autoAct('bed',spo2<92||rr>25,'Auto: elevation needed','Auto OFF: vitals OK');
+  var ab=document.getElementById('alertbox');
+  if(spo2<88) ab.innerHTML='<div class="alert a-crit">CRITICAL — SpO2 at '+spo2+'% · Oxygen supply activated · Caregiver notified</div>';
+  else if(spo2<94) ab.innerHTML='<div class="alert a-warn">WARNING — SpO2 dropping to '+spo2+'% · Monitoring closely</div>';
+  else if(rr>25) ab.innerHTML='<div class="alert a-warn">WARNING — Respiratory rate elevated at '+rr+' breaths/min</div>';
+  else if(temp>37.8) ab.innerHTML='<div class="alert a-warn">CAUTION — Temperature '+temp+' degrees C · Possible infection</div>';
+  else ab.innerHTML='<div class="alert a-ok">All vitals within normal range — Patient stable</div>';
+  setText('clk',now);
+}
+function setText(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+function setColor(id,c){var e=document.getElementById(id);if(e)e.style.color=c;}
+function vStat(id,v,crit,warn,cid){
+  var es=document.getElementById('s-'+id), ec=document.getElementById(cid); if(!es||!ec) return;
+  ec.className='vc';
+  if(v<=crit){es.style.color='var(--crit)';es.textContent='CRITICAL';ec.classList.add('crit');}
+  else if(v<=warn){es.style.color='var(--warn)';es.textContent='Warning';ec.classList.add('warn');}
+  else{es.style.color='var(--ok)';es.textContent='Normal';ec.classList.add('ok');}
+}
+function vStatH(id,v,crit,warn,cid){
+  var es=document.getElementById('s-'+id), ec=document.getElementById(cid); if(!es||!ec) return;
+  ec.className='vc';
+  if(v>=crit){es.style.color='var(--crit)';es.textContent='CRITICAL';ec.classList.add('crit');}
+  else if(v>=warn){es.style.color='var(--warn)';es.textContent='Warning';ec.classList.add('warn');}
+  else{es.style.color='var(--ok)';es.textContent='Normal';ec.classList.add('ok');}
+}
+
+// ---- ACTUATORS ----
+function autoAct(id,cond,on,off){if(cond&&!S.act[id])fireAct(id,true,on);if(!cond&&S.act[id])fireAct(id,false,off);}
+function fireAct(id,on,reason){
+  S.act[id]=on;
+  var t=document.getElementById('t-'+id); if(t) t.className='toggle'+(on?' on':'');
+  var msgs={o2:on?'Active - delivering O2':'Standby',bed:on?'Elevated 30 degrees':'0 degrees flat'};
+  setText('d-'+id,msgs[id]);
+  if(id==='o2') setText('o2r',on?'2 L/min':'---');
+  if(id==='bed') setText('bedA',on?'30 degrees':'0 degrees');
+  var log=document.getElementById('evLog'); if(!log) return;
+  var line=document.createElement('div');
+  line.style.color=on?'var(--warn)':'var(--ok)';
+  line.textContent='['+new Date().toLocaleTimeString()+'] '+(reason||id+' '+(on?'ON':'OFF'));
+  if(log.textContent.trim()==='No events yet.') log.textContent='';
+  log.insertBefore(line,log.firstChild);
+}
+function tog(id){fireAct(id,!S.act[id],'Manual '+(S.act[id]?'OFF':'ON')+': '+id);}
+
+// ---- FastAPI CONFIG ----
+// Update this URL to match your FastAPI server address
+var FASTAPI_URL = 'http://localhost:8000';
+
+// ---- HELPERS ----
+function typeOut(id,text,spd){
+  var el=document.getElementById(id); if(!el) return;
+  el.innerHTML='<span class="typing">Analyzing</span>';
+  setTimeout(function(){
+    el.textContent=''; var i=0;
+    var iv=setInterval(function(){ el.textContent+=text[i]; i++; if(i>=text.length) clearInterval(iv); },spd||9);
+  },700);
+}
+function showError(id, msg){
+  var el=document.getElementById(id); if(!el) return;
+  el.style.display='block';
+  el.innerHTML='<span style="color:var(--crit)">⚠ FastAPI Error: '+msg+'</span>';
+}
+
+// ---- AI: RUN ANALYSIS via FastAPI /predict ----
+async function runAI(){
+  var btn=document.getElementById('aiBtn'); btn.disabled=true; btn.textContent='Analyzing...';
+  var spo2=parseFloat(S.spo2.toFixed(1)), rr=Math.round(S.rr), temp=parseFloat(S.temp.toFixed(1));
+  var aiOut=document.getElementById('aiOut');
+  aiOut.innerHTML='<span class="typing">Contacting FastAPI server</span>';
+
+  try {
+    var res = await fetch(FASTAPI_URL+'/predict', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ spo2: spo2, respiratory_rate: rr, temperature: temp,
+                             o2_active: S.act.o2, bed_elevated: S.act.bed })
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status+' — '+res.statusText);
+    var data = await res.json();
+
+    // data expected: { risk_score: 0-100, assessment: "...", flags: [{label:"...", level:"ok|warn|bad"}] }
+    var score = data.risk_score || 0;
+    setText('riskNum', score+'%');
+    setColor('riskNum', score>70?'var(--crit)':score>40?'var(--warn)':'var(--ok)');
+    var bar=document.getElementById('riskBar');
+    bar.style.width=score+'%';
+    bar.style.background=score>70?'var(--crit)':score>40?'var(--warn)':'var(--ok)';
+    setText('riskLbl', score>70?'High Risk':score>40?'Moderate':'Low Risk');
+    typeOut('aiOut', data.assessment||'No assessment returned.', 8);
+
+    var ft=document.getElementById('ftags'); ft.innerHTML='';
+    // Sensor tag row always shown
+    [{l:'SpO2 '+spo2+'%',c:spo2<90?'ft-bad':spo2<94?'ft-warn':'ft-ok'},
+     {l:'RR '+rr,c:rr>25?'ft-bad':rr>20?'ft-warn':'ft-ok'},
+     {l:'Temp '+temp+'C',c:temp>38?'ft-bad':temp>37.5?'ft-warn':'ft-ok'},
+     {l:'O2: '+(S.act.o2?'ON':'OFF'),c:S.act.o2?'ft-warn':'ft-ok'}
+    ].forEach(function(t){var s=document.createElement('span');s.className='ft '+t.c;s.textContent=t.l;ft.appendChild(s);});
+    // Extra flags from FastAPI
+    if(data.flags && Array.isArray(data.flags)){
+      data.flags.forEach(function(f){
+        var s=document.createElement('span');
+        s.className='ft ft-'+(f.level||'ok');
+        s.textContent=f.label; ft.appendChild(s);
+      });
+    }
+  } catch(err){
+    showError('aiOut', err.message);
+    setText('riskNum','--'); setText('riskLbl','Unavailable');
+    document.getElementById('riskBar').style.width='0%';
+  }
+  btn.disabled=false; btn.textContent='Run Analysis';
+}
+
+// ---- AI: CLINICAL Q&A via FastAPI /ask ----
+async function askQ(){
+  var q=document.getElementById('qaInput').value.trim(); if(!q) return;
+  var out=document.getElementById('qaOut'); out.style.display='block';
+  out.innerHTML='<span class="typing">Contacting FastAPI server</span>';
+  var spo2=parseFloat(S.spo2.toFixed(1)), rr=Math.round(S.rr), temp=parseFloat(S.temp.toFixed(1));
+
+  try {
+    var res = await fetch(FASTAPI_URL+'/ask', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ question: q, spo2: spo2, respiratory_rate: rr, temperature: temp })
+    });
+    if(!res.ok) throw new Error('HTTP '+res.status+' — '+res.statusText);
+    var data = await res.json();
+    // data expected: { answer: "..." }
+    typeOut('qaOut', data.answer||'No answer returned.', 9);
+  } catch(err){
+    showError('qaOut', err.message);
+  }
+}
+
+// ---- REPORT TABLE ----
+var ROWS=[[0,97,16,36.6,38,false,false,'ok'],[2,96,17,36.7,42,false,false,'ok'],[4,95,18,36.8,45,false,false,'ok'],
+  [6,93,20,36.9,50,true,false,'warn'],[8,91,23,37.1,55,true,true,'warn'],[10,94,19,37.0,48,false,false,'ok'],
+  [12,96,17,36.8,40,false,false,'ok'],[14,95,18,36.7,42,false,false,'ok'],[16,94,20,36.9,60,false,false,'warn'],
+  [18,97,16,36.6,35,false,false,'ok'],[20,96,17,36.7,38,false,false,'ok'],[22,95,18,36.8,40,false,false,'ok']];
+function buildTable(){
+  var tb=document.getElementById('rptBody'); if(!tb||tb.children.length) return;
+  ROWS.forEach(function(r){
+    var tr=document.createElement('tr');
+    tr.innerHTML='<td>'+String(r[0]).padStart(2,'0')+':00</td>'
+      +'<td style="color:'+(r[1]<93?'var(--warn)':'inherit')+'">'+r[1]+'%</td><td>'+r[2]+'</td><td>'+r[3]+'</td>'
+      +'<td>'+(r[5]?'Active':'---')+'</td><td>'+(r[6]?'30 deg':'---')+'</td>'
+      +'<td><span class="pill p-'+(r[7]==='ok'?'ok':'warn')+'">'+( r[7]==='ok'?'Normal':'Caution')+'</span></td>';
+    tb.appendChild(tr);
+  });
+}
+var RPTS=["DAILY CLINICAL REPORT — patient01 (Stage II COPD, Age 67)\nDate: "+new Date().toLocaleDateString()+"\n\nOVERNIGHT (00:00-06:00)\nPatient remained hemodynamically stable through the overnight period. SpO2 maintained between 95-97%. Respiratory rate was within normal range of 16-18 breaths per minute. Body temperature 36.6-36.8 degrees C with no pyrexia. No interventions required during this period.\n\nMORNING EVENT (08:00)\nA significant hypoxic episode was recorded with SpO2 dropping to 91% and respiratory rate rising to 23 breaths per minute. The automated system activated supplemental oxygen at 2 L/min and bed elevation to 30 degrees. Full recovery to SpO2 94% was achieved within approximately 18 minutes. This episode is consistent with post-sleep mucus accumulation and reduced respiratory muscle tone on waking.\n\nDAYTIME (10:00-22:00)\nVitals returned to baseline following the morning intervention. Air Quality Index peaked at 60 during the afternoon but remained below action threshold. Oxygen therapy was discontinued after recovery. No further significant events recorded.\n\nCLINICAL RECOMMENDATIONS\n1. Advance morning chest physiotherapy by 30 minutes to prevent morning mucus-related SpO2 dips\n2. Ensure PRN bronchodilator (salbutamol) is accessible at bedside\n3. Repeat spirometry this week to re-assess FEV1 baseline\n4. Continue current monitoring protocol — daily physician review recommended\n5. Overall assessment: Stable day, Grade B+"];
+function genReport(){
+  var out=document.getElementById('rptOut'); out.style.display='block';
+  typeOut('rptOut',RPTS[0],6);
+}
+
+// ---- NAV ----
+function nav(id,el){
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
+  document.getElementById('p-'+id).classList.add('active');
+  if(el) el.classList.add('active');
+  if(id==='dashboard') setTimeout(initMain,60);
+  if(id==='history') setTimeout(initWeek,60);
+  if(id==='reports') buildTable();
+}
+
+// ---- BOOT ----
+document.getElementById('rptDate').value=new Date().toISOString().split('T')[0];
+setTimeout(initMain,120);
+tick();
+setInterval(tick,4000);
+window.addEventListener('resize',function(){
+  chartsReady={main:false,week:false};
+  if(document.getElementById('p-dashboard').classList.contains('active')) initMain();
+  if(document.getElementById('p-history').classList.contains('active')) initWeek();
+});
+</script>
+</body>
+</html>
